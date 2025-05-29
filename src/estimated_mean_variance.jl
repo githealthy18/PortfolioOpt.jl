@@ -24,8 +24,13 @@ end
 function calculate_measure!(measure::SqrtVariance{S}, w) where {S<:AmbiguitySet}
     model = owner_model(w)
     
-    # Cholesky decomposition of the covariance matrix
-    Σ = PDMat(cov(measure.ambiguity_set))
+    local Σ
+    try
+        # Cholesky decomposition of the covariance matrix
+        Σ = PDMat(cov(measure.ambiguity_set))
+    catch e
+        Σ = cov(measure.ambiguity_set)
+    end
     sqrt_Σ = collect(Σ.chol.U)
 
     # Extra dimention to represent the square root of the portfolio variance

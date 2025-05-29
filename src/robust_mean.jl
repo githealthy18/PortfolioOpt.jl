@@ -202,7 +202,13 @@ function calculate_measure!(measure::ExpectedReturn{S}, w)   where {S<:Elliptica
 
     # parameters
     means = Vector(Distributions.mean(s.d))
-    Σ = PDMat(Symmetric(cov(s.d)))
+    local Σ
+    try
+        # Cholesky decomposition of the covariance matrix
+        Σ = PDMat(Symmetric(cov(s.d)))
+    catch e
+        Σ = cov(s.d)
+    end
     sqrt_Σ = collect(Σ.chol.U)
 
     Δ = s.Δ
