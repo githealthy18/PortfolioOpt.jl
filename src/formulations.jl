@@ -23,9 +23,9 @@ struct ExpectedReturn{S<:AmbiguitySet} <: PortfolioRiskMeasure{S}
     ambiguity_set::S
 end
 
-function ExpectedReturn(ambiguity_set::S) where {S<:AmbiguitySet}
-    return ExpectedReturn{S}(ambiguity_set)
-end
+# function ExpectedReturn(ambiguity_set::S) where {S<:AmbiguitySet}
+#     return ExpectedReturn{S}(ambiguity_set)
+# end
 ambiguityset(m::ExpectedReturn) = m.ambiguity_set
 
 struct Variance{S<:AmbiguitySet} <: PortfolioRiskMeasure{S}
