@@ -167,7 +167,7 @@ default_DuWassersteinBall_lambda(d::Sampleable, norm_cone::Real; num_samples::In
     calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWassersteinBall}
 
 """
-function calculate_measure!(measure::ExpectedReturn{DuWassersteinBall}, w)
+function calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWassersteinBall}
     model = owner_model(w)
     ambiguity_set = ambiguityset(measure)
 
