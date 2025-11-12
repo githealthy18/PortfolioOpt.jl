@@ -134,6 +134,8 @@ struct DuWassersteinBall{T<:Real, D<:DeterministicSamples} <: CenteredAmbiguityS
             "Distribution ($(length(d))) and Q ($(size(Q,2))) must have coherent dimensions (m and mxm)"
         ))
         ϵ >= 0 || throw(ArgumentError("ϵ must be >= 0"))
+        η >= 0 && η <= 1 || throw(ArgumentError("η must be in [0,1]"))
+        α > 0 && α < 1 || throw(ArgumentError("α must be in (0,1)"))
         Λ >= 0 || throw(ArgumentError("Λ must be >= 0"))
         haskey(primal_cone, string(norm_cone)) || throw(ArgumentError("norm_cone must be one of $(keys(primal_cone))"))
         return new{T, D}(d, ϵ, η, α, Λ, Q, norm_cone)
