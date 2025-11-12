@@ -120,46 +120,40 @@ References:
 struct DuWassersteinBall{T<:Real, D<:DeterministicSamples} <: CenteredAmbiguitySet{T,D}
     d::D
     ϵ::T
-    η::T
-    α::T
     Λ::T
     Q::Array{T,2}
     norm_cone::Real
 
     # Inner constructor for validating arguments
     function DuWassersteinBall{T, D}(
-        d::D, ϵ::T, η::T, α::T, Λ::T, Q::Array{T,2}, norm_cone::Real
+        d::D, ϵ::T, Λ::T, Q::Array{T,2}, norm_cone::Real
     ) where {T<:Real, D<:DeterministicSamples}
         length(d) == size(Q,1) == size(Q,2) || throw(ArgumentError(
             "Distribution ($(length(d))) and Q ($(size(Q,2))) must have coherent dimensions (m and mxm)"
         ))
         ϵ >= 0 || throw(ArgumentError("ϵ must be >= 0"))
-        η >= 0 && η <= 1 || throw(ArgumentError("η must be in [0,1]"))
-        α > 0 && α < 1 || throw(ArgumentError("α must be in (0,1)"))
         Λ >= 0 || throw(ArgumentError("Λ must be >= 0"))
         haskey(primal_cone, string(norm_cone)) || throw(ArgumentError("norm_cone must be one of $(keys(primal_cone))"))
-        return new{T, D}(d, ϵ, η, α, Λ, Q, norm_cone)
+        return new{T, D}(d, ϵ, Λ, Q, norm_cone)
     end
 end
 
 # Default outer constructor
 function DuWassersteinBall(
-    d::D, ϵ::T, η::T, α::T, Λ::T, Q::Array{T,2}, norm_cone::Real
+    d::D, ϵ::T, Λ::T, Q::Array{T,2}, norm_cone::Real
 ) where {T<:Real, D<:DeterministicSamples}
-    DuWassersteinBall{T, D}(d, ϵ, η, α, Λ, Q, norm_cone)
+    DuWassersteinBall{T, D}(d, ϵ, Λ, Q, norm_cone)
 end
 
 # Kwarg constructor with defaults
 function DuWassersteinBall(
     d::S;
     ϵ=0.01,
-    η=0.5,
-    α=0.01,
+    norm_cone=Inf,
     Λ=default_DuWassersteinBall_lambda(d, norm_cone),
-    Q=Matrix(I(length(d))* 1.0),
-    norm_cone=Inf
+    Q=Matrix(I(length(d))* 1.0)
 ) where {S<:DeterministicSamples}
-    return DuWassersteinBall(d, ϵ, η, α, Λ, Q, norm_cone)
+    return DuWassersteinBall(d, ϵ, Λ, Q, norm_cone)
 end
 
 distribution(s::DuWassersteinBall) = s.d
@@ -184,8 +178,6 @@ function calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWasserste
     m = length(ambiguity_set)
 
     ϵ = ambiguity_set.ϵ
-    η = ambiguity_set.η
-    α = ambiguity_set.α
     Λ = ambiguity_set.Λ
     Q = ambiguity_set.Q
     Q_inv = pinv(Q)
@@ -197,11 +189,11 @@ function calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWasserste
     ν = @variable(model, [i=1:N, j=1:m])
     τ = @variable(model, [i=1:N])
 
-    @constraint(model, [i=1:N], -((1-η)/α + η) * dot(w, ξ[:, i]) + e*(1-η)*(1 - 1/α)
+    @constraint(model, [i=1:N], - dot(w, ξ[:, i])
         + ν[i, :]' * Q_inv * ξ[:, i] + Λ * τ[i] <= s[i]
     )
 
-    @constraint(model, [i=1:N], [λ; - Q_inv * ν[i, :] + ((1-η)/α + η) * w] in K(m + 1))
+    @constraint(model, [i=1:N], [λ; - Q_inv * ν[i, :] + w] in K(m + 1))
 
     @constraint(model, [i=1:N], [τ[i]; ν[i, :]] in MOI.dual_set(K(m + 1)))
 
