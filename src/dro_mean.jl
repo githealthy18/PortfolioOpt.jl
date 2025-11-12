@@ -150,6 +150,8 @@ function DuWassersteinBall(
     d::S;
     ϵ=0.01,
     norm_cone=Inf,
+    η=0.5,
+    α=0.01,
     Λ=default_DuWassersteinBall_lambda(d, norm_cone),
     Q=Matrix(I(length(d))* 1.0)
 ) where {S<:DeterministicSamples}
@@ -178,6 +180,8 @@ function calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWasserste
     m = length(ambiguity_set)
 
     ϵ = ambiguity_set.ϵ
+    η = ambiguity_set.η
+    α = ambiguity_set.α
     Λ = ambiguity_set.Λ
     Q = ambiguity_set.Q
     Q_inv = pinv(Q)
@@ -189,11 +193,11 @@ function calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWasserste
     ν = @variable(model, [i=1:N, j=1:m])
     τ = @variable(model, [i=1:N])
 
-    @constraint(model, [i=1:N], - dot(w, ξ[:, i])
+    @constraint(model, [i=1:N], -((1-η)/α + η) * dot(w, ξ[:, i]) + e*(1-η)*(1 - 1/α)
         + ν[i, :]' * Q_inv * ξ[:, i] + Λ * τ[i] <= s[i]
     )
 
-    @constraint(model, [i=1:N], [λ; - Q_inv * ν[i, :] + w] in K(m + 1))
+    @constraint(model, [i=1:N], [λ; - Q_inv * ν[i, :] + ((1-η)/α + η) * w] in K(m + 1))
 
     @constraint(model, [i=1:N], [τ[i]; ν[i, :]] in MOI.dual_set(K(m + 1)))
 
