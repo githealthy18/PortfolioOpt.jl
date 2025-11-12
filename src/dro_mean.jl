@@ -120,13 +120,15 @@ References:
 struct DuWassersteinBall{T<:Real, D<:DeterministicSamples} <: CenteredAmbiguitySet{T,D}
     d::D
     ϵ::T
+    η::T
+    α::T
     Λ::T
     Q::Array{T,2}
     norm_cone::Real
 
     # Inner constructor for validating arguments
     function DuWassersteinBall{T, D}(
-        d::D, ϵ::T, Λ::T, Q::Array{T,2}, norm_cone::Real
+        d::D, ϵ::T, η::T, α::T, Λ::T, Q::Array{T,2}, norm_cone::Real
     ) where {T<:Real, D<:DeterministicSamples}
         length(d) == size(Q,1) == size(Q,2) || throw(ArgumentError(
             "Distribution ($(length(d))) and Q ($(size(Q,2))) must have coherent dimensions (m and mxm)"
@@ -134,28 +136,28 @@ struct DuWassersteinBall{T<:Real, D<:DeterministicSamples} <: CenteredAmbiguityS
         ϵ >= 0 || throw(ArgumentError("ϵ must be >= 0"))
         Λ >= 0 || throw(ArgumentError("Λ must be >= 0"))
         haskey(primal_cone, string(norm_cone)) || throw(ArgumentError("norm_cone must be one of $(keys(primal_cone))"))
-        return new{T, D}(d, ϵ, Λ, Q, norm_cone)
+        return new{T, D}(d, ϵ, η, α, Λ, Q, norm_cone)
     end
 end
 
 # Default outer constructor
 function DuWassersteinBall(
-    d::D, ϵ::T, Λ::T, Q::Array{T,2}, norm_cone::Real
+    d::D, ϵ::T, η::T, α::T, Λ::T, Q::Array{T,2}, norm_cone::Real
 ) where {T<:Real, D<:DeterministicSamples}
-    DuWassersteinBall{T, D}(d, ϵ, Λ, Q, norm_cone)
+    DuWassersteinBall{T, D}(d, ϵ, η, α, Λ, Q, norm_cone)
 end
 
 # Kwarg constructor with defaults
 function DuWassersteinBall(
     d::S;
     ϵ=0.01,
-    norm_cone=Inf,
     η=0.5,
     α=0.01,
     Λ=default_DuWassersteinBall_lambda(d, norm_cone),
-    Q=Matrix(I(length(d))* 1.0)
+    Q=Matrix(I(length(d))* 1.0),
+    norm_cone=Inf
 ) where {S<:DeterministicSamples}
-    return DuWassersteinBall(d, ϵ, Λ, Q, norm_cone)
+    return DuWassersteinBall(d, ϵ, η, α, Λ, Q, norm_cone)
 end
 
 distribution(s::DuWassersteinBall) = s.d
