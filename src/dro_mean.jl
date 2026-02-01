@@ -123,26 +123,30 @@ struct DuWassersteinBall{T<:Real, D<:DeterministicSamples} <: CenteredAmbiguityS
     Λ::T
     Q::Array{T,2}
     norm_cone::Real
+    α::T
+    η::T
 
     # Inner constructor for validating arguments
     function DuWassersteinBall{T, D}(
-        d::D, ϵ::T, Λ::T, Q::Array{T,2}, norm_cone::Real
+        d::D, ϵ::T, Λ::T, Q::Array{T,2}, norm_cone::Real, α::T, η::T
     ) where {T<:Real, D<:DeterministicSamples}
         length(d) == size(Q,1) == size(Q,2) || throw(ArgumentError(
             "Distribution ($(length(d))) and Q ($(size(Q,2))) must have coherent dimensions (m and mxm)"
         ))
         ϵ >= 0 || throw(ArgumentError("ϵ must be >= 0"))
         Λ >= 0 || throw(ArgumentError("Λ must be >= 0"))
+        α > 0 || throw(ArgumentError("α must be > 0"))
+        0 <= η <= 1 || throw(ArgumentError("η must be in [0, 1)"))
         haskey(primal_cone, string(norm_cone)) || throw(ArgumentError("norm_cone must be one of $(keys(primal_cone))"))
-        return new{T, D}(d, ϵ, Λ, Q, norm_cone)
+        return new{T, D}(d, ϵ, Λ, Q, norm_cone, α, η)
     end
 end
 
 # Default outer constructor
 function DuWassersteinBall(
-    d::D, ϵ::T, Λ::T, Q::Array{T,2}, norm_cone::Real
+    d::D, ϵ::T, Λ::T, Q::Array{T,2}, norm_cone::Real, α::T, η::T
 ) where {T<:Real, D<:DeterministicSamples}
-    DuWassersteinBall{T, D}(d, ϵ, Λ, Q, norm_cone)
+    DuWassersteinBall{T, D}(d, ϵ, Λ, Q, norm_cone, α, η)
 end
 
 # Kwarg constructor with defaults
@@ -151,9 +155,11 @@ function DuWassersteinBall(
     ϵ=0.01,
     norm_cone=Inf,
     Λ=default_DuWassersteinBall_lambda(d, norm_cone),
-    Q=Matrix(I(length(d))* 1.0)
+    Q=Matrix(I(length(d))* 1.0),
+    α=0.05,
+    η=0.5
 ) where {S<:DeterministicSamples}
-    return DuWassersteinBall(d, ϵ, Λ, Q, norm_cone)
+    return DuWassersteinBall(d, ϵ, Λ, Q, norm_cone, α, η)
 end
 
 distribution(s::DuWassersteinBall) = s.d
@@ -167,7 +173,7 @@ default_DuWassersteinBall_lambda(d::Sampleable, norm_cone::Real; num_samples::In
     calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWassersteinBall}
 
 """
-function calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWassersteinBall}
+function PortfolioOpt.calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWassersteinBall}
     model = owner_model(w)
     ambiguity_set = ambiguityset(measure)
 
@@ -180,22 +186,32 @@ function calculate_measure!(measure::ExpectedReturn{S}, w) where {S<:DuWasserste
     ϵ = ambiguity_set.ϵ
     Λ = ambiguity_set.Λ
     Q = ambiguity_set.Q
+    α = ambiguity_set.α
+    η = ambiguity_set.η
     Q_inv = pinv(Q)
     K = primal_cone[string(ambiguity_set.norm_cone)]
 
     λ = @variable(model)
     e = @variable(model)
     s = @variable(model, [1:N])
-    ν = @variable(model, [i=1:N, j=1:m])
-    τ = @variable(model, [i=1:N])
+    ν¹ = @variable(model, [i=1:N, j=1:m])
+    τ¹ = @variable(model, [i=1:N])
+    ν² = @variable(model, [i=1:N, j=1:m])
+    τ² = @variable(model, [i=1:N])
 
-    @constraint(model, [i=1:N], - dot(w, ξ[:, i])
-        + ν[i, :]' * Q_inv * ξ[:, i] + Λ * τ[i] <= s[i]
+    @constraint(model, [i=1:N], - ((1 - η)/ α + η) * dot(w, ξ[:, i]) + e * (1 - η) * (1 - 1/α)
+        + ν¹[i, :]' * Q_inv * ξ[:, i] + Λ * τ¹[i] <= s[i]
+    )
+    @constraint(model, [i=1:N], - dot(w, ξ[:, i]) + e * (1 - η)
+        + ν²[i, :]' * Q_inv * ξ[:, i] + Λ * τ²[i] <= s[i]
     )
 
-    @constraint(model, [i=1:N], [λ; - Q_inv * ν[i, :] + w] in K(m + 1))
+    @constraint(model, [i=1:N], [λ; - Q_inv * ν¹[i, :] + ((1 - η)/ α + η) * w] in K(m + 1))
+    @constraint(model, [i=1:N], [λ; - Q_inv * ν²[i, :] + w] in K(m + 1))
 
-    @constraint(model, [i=1:N], [τ[i]; ν[i, :]] in MOI.dual_set(K(m + 1)))
+    @constraint(model, [i=1:N], [τ¹[i]; ν¹[i, :]] in MOI.dual_set(K(m + 1)))
+    @constraint(model, [i=1:N], [τ²[i]; ν²[i, :]] in MOI.dual_set(K(m + 1)))
 
     return - (λ * ϵ + sum(s) / N)
 end
+
