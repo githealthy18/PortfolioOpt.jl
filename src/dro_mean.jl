@@ -202,12 +202,12 @@ function PortfolioOpt.calculate_measure!(measure::ExpectedReturn{S}, w) where {S
     @constraint(model, [i=1:N], - ((1 - η)/ α + η) * dot(w, ξ[:, i]) + e * (1 - η) * (1 - 1/α)
         + ν¹[i, :]' * Q_inv * ξ[:, i] + Λ * τ¹[i] <= s[i]
     )
-    @constraint(model, [i=1:N], - dot(w, ξ[:, i]) + e * (1 - η)
+    @constraint(model, [i=1:N], - η * dot(w, ξ[:, i]) + e * (1 - η)
         + ν²[i, :]' * Q_inv * ξ[:, i] + Λ * τ²[i] <= s[i]
     )
 
     @constraint(model, [i=1:N], [λ; - Q_inv * ν¹[i, :] + ((1 - η)/ α + η) * w] in K(m + 1))
-    @constraint(model, [i=1:N], [λ; - Q_inv * ν²[i, :] + w] in K(m + 1))
+    @constraint(model, [i=1:N], [λ; - Q_inv * ν²[i, :] + η * w] in K(m + 1))
 
     @constraint(model, [i=1:N], [τ¹[i]; ν¹[i, :]] in MOI.dual_set(K(m + 1)))
     @constraint(model, [i=1:N], [τ²[i]; ν²[i, :]] in MOI.dual_set(K(m + 1)))
